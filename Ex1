@@ -1,0 +1,89 @@
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+import xgboost as xgb
+import matplotlib.pyplot as plt
+from sklearn.metrics import mean_absolute_error
+
+
+dados = pd.read_csv("dados.csv", encoding = "latin-1")
+dados.head(n=10)
+dados.shape
+dados.isnull().any()
+dados.info()
+
+dados["bairro"].unique()
+dados['bairro'] = dados['bairro'].map({'Botafogo' : 1, 'Copacabana' : 2, 'Gávea' : 3, 
+     'Grajaú' : 4, 'Ipanema' : 5, 'Leblon' : 6, 'Tijuca' : 7})
+
+estatistica_basica = dados.describe()
+
+#Preço - Assimetria Positiva (Os valores esperados devem focar entre -1,96 e +1,96) - +4,20
+dados["preco"].skew()
+#Achatamento - +28,80
+dados["preco"].kurt()
+#Transformação
+np.log1p(dados["preco"]).skew()
+np.log1p(dados["preco"]).kurt()
+
+#Condominio - Assimetria Positiva (Os valores esperados devem focar entre -1,96 e +1,96) - +2,78
+dados["condominio"].skew()
+#Achatamento - +13.48
+dados["condominio"].kurt()
+#Transformação
+np.log1p(dados["preco"]).skew()
+np.log1p(dados["preco"]).kurt()
+
+#Area - Assimetria Positiva (Os valores esperados devem focar entre -1,96 e +1,96) - +2,19
+dados["area"].skew()
+#Achatamento - +9,23
+dados["area"].kurt()
+#Transformação
+np.log1p(dados["area"]).skew()
+np.log1p(dados["area"]).kurt()
+
+#Análise da Variável Dependente vs Variáveis Independentes
+#Aréa x Preço
+dados.style.use("ggplot")
+dados.plot.scatter(x = "preco", y = 'area', s = .5)
+dados.sample(frac = 1).plot.scatter(x = "preco", y = 'area')
+#Área x Pm2
+dados.style.use("ggplot")
+dados.plot.scatter(x = "pm2", y = 'area', s = .5)
+dados.sample(frac = 1).plot.scatter(x = "pm2", y = 'area')
+
+#Matriz Correlação
+R = dados.corr()
+
+#Transformação dos dados
+dados1 = dados.copy()
+dados1["preco"] = np.log1p(dados1["preco"])
+dados1["condominio"] = np.log1p(dados1["condominio"])
+dados1["area"] = np.log1p(dados1["area"])
+dados1["pm2"] = np.log1p(dados1["pm2"])
+
+#Outliers
+Q1 = dados1.quantile(0.25)
+Q3 = dados1.quantile(0.75)
+#Intervalo Interquartil
+x = Q3 - Q1
+outliers = (dados1 < (Q1 - 1.5 * Q3)) | (dados1 > (Q3 + 1.5 * Q1))
+#Removendo os Outliers
+#outliers_out = dados1[~ ((dados1 < (Q1 - 1.5 * Q3)) | (dados1 > (Q3 + 1.5 * Q1))).any(axis=0)
+#dados1.reshape
+
+#Dividindo o conjunto de dados
+independentes = dados1.iloc[:, 0:7].values
+dependente = dados1.iloc[:, 7].values
+
+#treino e teste
+X_treinamento, X_teste, y_treinamento, y_teste = train_test_split(independentes,
+                                                                   dependente,
+                                                                   test_size = 0.2,
+                                                                   random_state = 0)
+#Algoritmo - DecisionTree
+gmb = xgb.XGBRegressor()
+gmb.fit(X_treinamento, y_treinamento)
+    #Previsão
+previsao = gmb.predict(X_teste)
+erro_medio_abs = mean_absolute_error(previsao, y_teste)
